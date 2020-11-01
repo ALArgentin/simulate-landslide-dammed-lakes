@@ -1,0 +1,99 @@
+Define DRY 1e-3
+Define GRAV 9.81
+Define LevelOfRefinement 10
+Define SH 1.00067
+Define mu 0.12
+Define Xi 500
+Define eps 1e-6
+# END, LENGTH, TX, TY, PATH should be defined with --define=END=... when launching the file
+
+1 0 GfsRiver GfsBox GfsGEdge { x = 0.5 y = 0.5 } {
+    PhysicalParams { L = LENGTH g = GRAV }
+    MapTransform { tx = TX ty = TY }
+    GfsTime { end = END  dtmax = 1e-1}
+
+GfsAdvectionParams {
+  cfl = 0.5
+  }
+# cfl = Courant-Friedrichs-Lewy
+  
+
+GModule terrain
+   Refine LevelOfRefinement
+
+
+  # Einlesen des Hoehenmodells und des Anbruchgebiets
+    VariableTerrain Zb { basename = PATH/without_rockfalls_DEM }
+    VariableTerrain RA { basename = PATH/only_rockfalls_DEM }
+
+#------------Anbruchgebiet definieren---------------------------------------
+Init {} {
+
+      P={
+          return (( RA > DRY  ) ? RA : 0);
+         }
+    
+        Pmax = 0.
+	Vmax = 0.
+        Imax = 0.
+        Impuls = 0.  
+        Vterm = 0.
+}
+
+#------------AMR--------------------- ------------------------------------
+
+    AdaptFunction { istep = 1 } {
+    cmax = 0
+    minlevel = (t > 0 ? 1 :5)
+    maxlevel = LevelOfRefinement
+
+} (( P > DRY ) ? 1 : 0) 
+
+
+#------------------------------------------------------------------------------------
+#------------Voellmy Fluid mit Stefans Spezial Korrektur III für Gegenhang ----------------------------
+Init { istep = 1 } {
+DY = dy("Zb")
+DX = dx("Zb")
+TAN2PHI = DX*DX+DY*DY
+SIN2PHI = TAN2PHI/(1.+TAN2PHI)
+COSPHI = 1./sqrt(1+TAN2PHI)
+TANPSI = -(DX*U+DY*V)/sqrt(U*U+V*V+eps)
+COSPSI = 1./sqrt(1+TANPSI*TANPSI)
+F = ( P > DRY ? Velocity/(Velocity+dt*GRAV*(SIN2PHI*TANPSI+mu*COSPHI*COSPSI+Velocity*Velocity/(P*Xi*COSPHI*COSPSI))) : 0. )
+U = U*F
+V = V*F
+P = (P > DRY ? P : 0.)
+}
+
+
+
+Init { istep = 1 } {
+	
+# Bestimmung der maximalen Fliesshoehe und Geschwindigkeit
+DX_Zb=dx("Zb")
+DY_Zb=dy("Zb")
+
+        Vtotal =  (P > DRY ? sqrt( U*U + V*V + (U*DX_Zb+V*DY_Zb)*(U*DX_Zb+V*DY_Zb) ) / P : 0  )
+        localDepth =  P / sqrt(1+DX_Zb*DX_Zb+DY_Zb*DY_Zb)
+}
+
+# Print the time in the terminal: code-"istep" plays with terminal-"step", code-"step" plays with terminal-"t". 
+OutputTime { istep = 20 } stderr
+
+OutputGRD { step = 50 } PATH/ASC/LocalDepth_%g.asc { v = localDepth }
+OutputGRD { step = 100 } PATH/ASC/FlowVelo3d_%g.asc { v = Vtotal }
+OutputGRD { step = 50 } PATH/ASC/Zb_%g.asc { v = Zb }
+OutputGRD { step = 50 } PATH/ASC/RA_%g.asc { v = RA }
+OutputGRD { step = 10 } PATH/ASC/FlowDepth_%g.asc { v = P }
+OutputSimulation { start = 0 step=50 } PATH/VTK/Landslide-%g.vtk {format = VTK variables=Zb,localDepth,Vtotal }
+}
+
+
+GfsBox {    
+    right =  BoundaryOutflow    
+    left = BoundaryOutflow    
+    top = BoundaryOutflow    
+    bottom = BoundaryOutflow    
+}
+

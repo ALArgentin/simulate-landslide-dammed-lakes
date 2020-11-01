@@ -1,0 +1,18 @@
+# Docker compose files are easier to run and distribute
+# just run `docker-compose up --build`
+version: '2'
+# Set up the services in this case we only have one `script`
+services:
+    script:
+        # Define the build context, here default values are used
+        build:
+            context: .
+            dockerfile: Dockerfile
+            # Create a volume this is how we persist data
+            # here we are linking the folder `output` in `scripts` to the folder `/app/output_folder` in the
+            # container
+            #
+            # the :Z is because of some funkiness not allowing writing to the director on certain filesystems
+        volumes:
+            - ./scripts/output:/app/output_folder:Z
+        command: ["/app/main.sh", -h, -v]
