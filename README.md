@@ -43,7 +43,7 @@ The script necessitates a few external files and comes with different command li
 
 ### Inputs
 - The freely available LiDAR-based [digital elevation model (DEM) of the Austrian Alps][DEM] with a spatial resolution of 10 m.
-- An executable of the Rockfall code - TO COME.
+- Vector files mapping the lithologies `LithUnits_*.gmt` and the glacial imprint `lgm_global_Corrected_only_alps.gmt` to use for the last step of computation. Their presence is optional. (gmt is the Generic Mapping Tool vector extension).
 
 ### Options
 Syntax: ./app/main.sh [-h] [-v] -A|B|X|C|D|E
